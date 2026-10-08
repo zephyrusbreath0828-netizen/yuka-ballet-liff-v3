@@ -1,47 +1,23 @@
-import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
-import { getAuth, type Auth } from "firebase/auth";
-import {
-  getFirestore,
-  initializeFirestore,
-  type Firestore,
-} from "firebase/firestore";
-import { firebaseConfig, isFirebaseConfigured } from "./env";
+import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
+import { getFirestore, type Firestore } from "firebase/firestore";
 
-/**
- * Firebase クライアント初期化（クライアント専用）。
- *
- * - `getApps().length` ガードにより、ホットリロードや複数回呼び出しでも多重初期化しない
- * - 遅延初期化（関数呼び出し時）にしているため、SSR / プリレンダー時に window へ触れない
- */
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? "",
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? "",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ?? "",
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ?? "",
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID ?? "",
+};
 
-let cachedApp: FirebaseApp | null = null;
-let cachedDb: Firestore | null = null;
+export const firebaseProjectId = firebaseConfig.projectId;
 
-export function getFirebaseApp(): FirebaseApp {
-  if (cachedApp) return cachedApp;
-  if (!isFirebaseConfigured()) {
-    throw new Error(
-      "Firebase の環境変数（NEXT_PUBLIC_FIREBASE_*）が設定されていません。",
-    );
-  }
-  cachedApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-  return cachedApp;
+let app: FirebaseApp;
+if (getApps().length === 0) {
+  app = initializeApp(firebaseConfig);
+} else {
+  app = getApp();
 }
 
-export function getFirebaseAuth(): Auth {
-  return getAuth(getFirebaseApp());
-}
-
-export function getDb(): Firestore {
-  if (cachedDb) return cachedDb;
-  const app = getFirebaseApp();
-  try {
-    cachedDb = initializeFirestore(app, {
-      // LIFF / LINE 内ブラウザでも安定するよう long-polling を許可
-      experimentalAutoDetectLongPolling: true,
-    });
-  } catch {
-    cachedDb = getFirestore(app);
-  }
-  return cachedDb;
-}
+export const db: Firestore = getFirestore(app);
+export default app;

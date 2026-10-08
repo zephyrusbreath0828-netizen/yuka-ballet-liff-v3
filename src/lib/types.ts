@@ -1,159 +1,106 @@
-import type { Timestamp } from "firebase/firestore";
+export type Role = "student" | "teacher" | "admin";
 
-/** ロール（権限） */
-export type Role = "admin" | "teacher" | "parent";
-
-/** 出欠ステータス */
-export type AttendanceStatus = "present" | "absent" | "late" | "excused";
-
-/** 生徒のレベル */
-export type Level = "kids" | "beginner" | "intermediate" | "advanced";
-
-/** お知らせの配信対象 */
-export type Audience = "all" | "parents" | "teachers";
-
-/** Firestore コレクション名 */
-export const COLLECTIONS = {
-  users: "users",
-  students: "students",
-  teachers: "teachers",
-  lessons: "lessons",
-  attendance: "attendance",
-  announcements: "announcements",
-} as const;
-
-export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];
-
-export const ROLE_LABEL: Record<Role, string> = {
-  admin: "管理者",
-  teacher: "講師",
-  parent: "保護者",
-};
-
-export const STATUS_LABEL: Record<AttendanceStatus, string> = {
-  present: "出席",
-  absent: "欠席",
-  late: "遅刻",
-  excused: "公欠",
-};
-
-export const LEVEL_LABEL: Record<Level, string> = {
-  kids: "キッズ",
-  beginner: "初級",
-  intermediate: "中級",
-  advanced: "上級",
-};
-
-export const AUDIENCE_LABEL: Record<Audience, string> = {
-  all: "全員",
-  parents: "保護者",
-  teachers: "講師",
-};
-
-/* ------------------------------------------------------------------ */
-/* users                                                              */
-/* ------------------------------------------------------------------ */
-export interface UserDoc {
-  uid: string;
-  lineUserId?: string;
+/** users コレクション */
+export type AppUser = {
+  uid: string; // Firestore docId = LINE userId
+  lineUserId: string;
   displayName: string;
-  pictureUrl?: string;
-  email?: string;
+  pictureUrl: string | null;
   role: Role;
-  studentIds?: string[];
-  createdAt?: Timestamp | null;
-  updatedAt?: Timestamp | null;
-}
-export interface UserProfile extends UserDoc {
-  id: string;
-}
+  memberNumber: string; // 会員番号
+  className: string; // 所属クラス
+  createdAt?: unknown; // Timestamp（初回ログイン時のみ設定）
+  lastLoginAt?: unknown; // Timestamp（再ログインのたびに更新）
+  updatedAt?: unknown; // Timestamp
+};
 
-/* ------------------------------------------------------------------ */
-/* students                                                           */
-/* ------------------------------------------------------------------ */
-export interface StudentDoc {
-  name: string;
-  nameKana: string;
-  birthday?: string;
-  level: Level;
-  guardianUids?: string[];
-  teacherIds?: string[];
-  note?: string;
-  active: boolean;
-  createdAt?: Timestamp | null;
-}
-export interface Student extends StudentDoc {
-  id: string;
-}
-
-/* ------------------------------------------------------------------ */
-/* teachers                                                           */
-/* ------------------------------------------------------------------ */
-export interface TeacherDoc {
-  name: string;
-  nameKana: string;
-  email?: string;
-  specialties: string[];
-  bio?: string;
-  active: boolean;
-  createdAt?: Timestamp | null;
-}
-export interface Teacher extends TeacherDoc {
-  id: string;
-}
-
-/* ------------------------------------------------------------------ */
-/* lessons                                                            */
-/* ------------------------------------------------------------------ */
-export interface LessonDoc {
+/** lessons コレクション */
+export type Lesson = {
+  lessonId: string; // docId
   title: string;
-  /** YYYY-MM-DD */
-  date: string;
-  startTime: string;
-  endTime: string;
-  studio: string;
-  teacherId: string;
+  className: string;
   teacherName: string;
-  level: Level;
+  startAt: TimestampLike; // Timestamp
+  endAt: TimestampLike; // Timestamp
   capacity: number;
-  studentIds: string[];
-  createdAt?: Timestamp | null;
-}
-export interface Lesson extends LessonDoc {
-  id: string;
-}
+  reservedCount: number;
+  notificationType: NotificationType;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+};
 
-/* ------------------------------------------------------------------ */
-/* attendance                                                         */
-/* ------------------------------------------------------------------ */
-export interface AttendanceDoc {
+/** 通知タイミング */
+export const NOTIFICATION_TYPES = [
+  "none",
+  "at_end",
+  "before_15m",
+  "before_30m",
+  "before_60m",
+] as const;
+
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
+  none: "通知しない",
+  at_end: "終了時刻ちょうど",
+  before_15m: "終了15分前",
+  before_30m: "終了30分前",
+  before_60m: "終了60分前",
+};
+
+/** lessonReservations コレクション */
+export type LessonReservation = {
+  reservationId: string; // docId
   lessonId: string;
-  lessonDate: string;
-  lessonTitle: string;
-  studentId: string;
-  studentName: string;
-  status: AttendanceStatus;
-  note?: string;
-  recordedBy?: string;
-  updatedAt?: Timestamp | null;
-}
-export interface Attendance extends AttendanceDoc {
-  id: string;
-}
+  userId: string; // LINE userId
+  displayName: string;
+  memberNumber: string;
+  reservedAt: TimestampLike;
+  attendanceStatus: AttendanceStatus;
+};
 
-/* ------------------------------------------------------------------ */
-/* announcements                                                      */
-/* ------------------------------------------------------------------ */
-export interface AnnouncementDoc {
+export type AttendanceStatus = "reserved" | "attended" | "absent";
+
+export const ATTENDANCE_LABELS: Record<AttendanceStatus, string> = {
+  reserved: "予約済み",
+  attended: "出席",
+  absent: "欠席",
+};
+
+/** announcements コレクション */
+export type Announcement = {
+  announcementId: string; // docId
   title: string;
-  body: string;
-  audience: Audience;
-  pinned: boolean;
-  authorName: string;
-  /** YYYY-MM-DD */
-  publishedOn: string;
-  createdAt?: Timestamp | null;
-}
-export interface Announcement extends AnnouncementDoc {
-  id: string;
-}
+  content: string;
+  createdAt: TimestampLike;
+  publishedBy: string;
+};
+
+/** payments コレクション */
+export type Payment = {
+  paymentId: string; // docId
+  userId: string;
+  displayName: string;
+  memberNumber: string;
+  title: string; // 項目名 (例: 8月月謝)
+  amount: number;
+  dueDate: TimestampLike | null;
+  status: PaymentStatus;
+  createdAt: TimestampLike;
+};
+
+export type PaymentStatus = "unpaid" | "paid";
+
+export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
+  unpaid: "未払い",
+  paid: "支払い済み",
+};
+
+/** test_connection コレクション */
+export type TestConnection = {
+  timestamp: unknown; // serverTimestamp
+  projectId: string;
+};
+
+/** Firestore Timestamp の代わりに unknown を許容する便宜型 */
+export type TimestampLike = unknown;

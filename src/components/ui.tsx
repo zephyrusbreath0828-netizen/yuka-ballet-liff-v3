@@ -1,74 +1,87 @@
-export function Card({
-  children,
-  className = "",
+"use client";
+
+import { useEffect, useState } from "react";
+
+type ToastType = "success" | "error";
+
+export type ToastState = {
+  type: ToastType;
+  message: string;
+} | null;
+
+/** 保存成功トースト / エラー表示 */
+export function Toast({ state }: { state: ToastState }) {
+  if (!state) return null;
+  const bg =
+    state.type === "success"
+      ? "bg-emerald-600"
+      : "bg-red-600";
+  return (
+    <div className="fixed bottom-20 left-0 right-0 flex justify-center z-50 px-4">
+      <div
+        role="alert"
+        className={`${bg} text-white text-sm rounded-full px-5 py-2.5 shadow-lg max-w-sm w-full text-center`}
+      >
+        {state.message}
+      </div>
+    </div>
+  );
+}
+
+/** トーストを表示するフック（4秒後に自動で消える） */
+export function useToast() {
+  const [state, setState] = useState<ToastState>(null);
+  const show = (type: ToastType, message: string) => {
+    setState({ type, message });
+    window.setTimeout(() => setState(null), 4000);
+  };
+  return { state, show };
+}
+
+/**
+ * ログイン成功の確認用挨拶。displayName は LIFF のプロフィールから取得した実データを表示する。
+ * 「こんにちは、〇〇さん」＋「ログイン成功」バッジが出ていればログイン成功と判定できる。
+ */
+export function Greeting({
+  displayName,
+  role,
 }: {
-  children: React.ReactNode;
-  className?: string;
+  displayName: string;
+  role: string;
 }) {
-  return (
-    <div
-      className={`rounded-xl2 border border-brand-100 bg-white p-4 shadow-card ${className}`}
-    >
-      {children}
-    </div>
-  );
-}
-
-export function SectionTitle({
-  title,
-  action,
-}: {
-  title: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="mb-2 flex items-end justify-between">
-      <h2 className="text-[13px] font-semibold tracking-wide text-ink-700">{title}</h2>
-      {action}
-    </div>
-  );
-}
-
-export function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="rounded-xl2 border border-dashed border-brand-200 bg-white/60 px-4 py-8 text-center text-[12px] text-ink-500">
-      {message}
-    </div>
-  );
-}
-
-export function Loading() {
-  return (
-    <div className="space-y-3" aria-busy="true">
-      {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          className="h-20 animate-pulse rounded-xl2 border border-brand-100 bg-white/70"
-        />
-      ))}
-    </div>
-  );
-}
-
-export function Badge({
-  children,
-  tone = "brand",
-}: {
-  children: React.ReactNode;
-  tone?: "brand" | "green" | "amber" | "rose" | "slate";
-}) {
-  const tones: Record<string, string> = {
-    brand: "bg-brand-50 text-brand-700 border-brand-200",
-    green: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    amber: "bg-amber-50 text-amber-700 border-amber-200",
-    rose: "bg-rose-50 text-rose-700 border-rose-200",
-    slate: "bg-slate-50 text-slate-600 border-slate-200",
+  const ROLE_LABELS: Record<string, string> = {
+    student: "生徒・保護者",
+    teacher: "講師",
+    admin: "管理者",
   };
   return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${tones[tone]}`}
-    >
-      {children}
-    </span>
+    <div className="rounded-2xl bg-ballet-600 p-4 text-white shadow-sm">
+      <p className="text-base font-bold">こんにちは、{displayName}さん</p>
+      <div className="mt-1.5 flex items-center gap-2">
+        <span className="rounded-full bg-white/25 px-2.5 py-0.5 text-[11px] font-bold">
+          ログイン成功
+        </span>
+        <span className="text-[11px] opacity-90">
+          {ROLE_LABELS[role] ?? role}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export function Loading({ label = "読み込み中…" }: { label?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 gap-3">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-ballet-200 border-t-ballet-600" />
+      <p className="text-sm text-gray-500">{label}</p>
+    </div>
+  );
+}
+
+export function EmptyState({ label }: { label: string }) {
+  return (
+    <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-400">
+      {label}
+    </div>
   );
 }

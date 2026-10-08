@@ -24,7 +24,7 @@ service cloud.firestore {
      * users: LINEログイン直後に Firebase Web SDK から users/{lineUserId} を
      * setDoc(merge:true) で自動作成・更新する。
      *
-     * 【重要】サーバーAPI（/api/auth/line 等）を廃止しクライアントから直接
+     * 【重要】サーバーAPIを廃止しクライアントから直接
      * 書き込む構成のため、request.auth による「本人確認」は行われない。
      * つまり現状のルールでは、任意のクライアントが任意の userId を書き込める。
      * 公開前に「ログイン中のユーザー」が誰であるかを検証したい場合は、

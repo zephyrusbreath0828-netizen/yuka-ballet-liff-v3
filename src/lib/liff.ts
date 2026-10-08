@@ -1,65 +1,67 @@
-import type { Liff } from "@line/liff";
-import { LIFF_ID } from "./env";
-
-export interface LiffProfile {
-  userId: string;
-  displayName: string;
-  pictureUrl?: string;
-  statusMessage?: string;
-}
-
-let liffInstance: Liff | null = null;
+import liff from "@line/liff";
 
 /**
- * LIFF SDK を動的 import して初期化する。
- *
- * - `@line/liff` はブラウザ専用のため、必ずクライアントコンポーネントの
- *   副作用（useEffect）から呼び出すこと。動的 import により
- *   SSR / プリレンダー時に window 参照で落ちるのを防ぐ。
+ * LIFF SDK の初期化。
+ * クライアントサイドでのみ呼び出すこと（Next.js の SSR では動作しない）。
  */
-export async function initLiff(): Promise<Liff> {
-  if (typeof window === "undefined") {
-    throw new Error("LIFF はクライアント環境でのみ初期化できます。");
-  }
-  if (!LIFF_ID) {
+export async function initLiff(): Promise<void> {
+  const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+  if (!liffId) {
     throw new Error(
-      "NEXT_PUBLIC_LIFF_ID が設定されていません。LINE Developers で LIFF ID を取得し、環境変数に設定してください。",
+      "LIFF ID が設定されていません。.env.local の NEXT_PUBLIC_LIFF_ID を確認してください。"
     );
   }
-  if (liffInstance) return liffInstance;
-
-  const mod = await import("@line/liff");
-  const liff = (mod.default ?? mod) as unknown as Liff;
-  await liff.init({ liffId: LIFF_ID });
-  liffInstance = liff;
-  return liffInstance;
+  await liff.init({ liffId });
 }
 
-/** 初期化済みインスタンスを返す（未初期化なら null） */
-export function getLiff(): Liff | null {
-  return liffInstance;
+export function isLiffLoggedIn(): boolean {
+  return liff.isLoggedIn();
 }
 
-/** LIFF のログイン状態を確認し、必要ならログイン画面へリダイレクトする */
-export async function ensureLiffLogin(): Promise<Liff | null> {
-  const liff = await initLiff();
-  if (!liff.isLoggedIn()) {
-    liff.login();
-    return null;
-  }
-  return liff;
+export function liffLogin(): void {
+  liff.login();
 }
 
-export async function getLiffProfile(liff: Liff): Promise<LiffProfile> {
+export function liffLogout(): void {
+  liff.logout();
+}
+
+/** LINE プロフィール取得（userId / displayName / pictureUrl） */
+export async function getLiffProfile(): Promise<{
+  userId: string;
+  displayName: string;
+  pictureUrl: string | null;
+}> {
   const profile = await liff.getProfile();
   return {
     userId: profile.userId,
     displayName: profile.displayName,
-    pictureUrl: profile.pictureUrl,
-    statusMessage: profile.statusMessage,
+    pictureUrl: profile.pictureUrl ?? null,
   };
 }
 
-export function isInLineBrowser(): boolean {
-  return typeof window !== "undefined" && /Line\//i.test(navigator.userAgent);
+/** QR スキャン（LINE 内ブラウザのみ対応） */
+export async function scanQrCode(): Promise<string | null> {
+  if (!liff.isInClient()) {
+    throw new Error("QR読み取りはLINEアプリ内でのみ利用できます");
+  }
+  try {
+    if (typeof liff.scanCode !== "function") {
+      throw new Error("このLIFFバージョンではQRスキャンを利用できません");
+    }
+    const result = await liff.scanCode();
+    return result?.value ?? null;
+  } catch {
+    return null;
+  }
 }
+
+/** LINE公式アカウントとのトーク画面を開く */
+export function openLineTalk(): void {
+  liff.openWindow({
+    url: "https://line.me/R/tip?p=@yuka-ballet",
+    external: false,
+  });
+}
+
+export default liff;
