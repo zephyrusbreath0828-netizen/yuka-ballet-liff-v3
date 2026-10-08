@@ -1,0 +1,91 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* ロール取得ヘルパー（LINE userId = ユーザーUID） */
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isAdmin() {
+      return isSignedIn() && getUserData().role == 'admin';
+    }
+    function isTeacher() {
+      return isSignedIn() && getUserData().role == 'teacher';
+    }
+    function isAdminOrTeacher() {
+      return isAdmin() || isTeacher();
+    }
+
+    /* ------------------------------------------------------------------
+     * users: LINEログイン直後に Firebase Web SDK から users/{lineUserId} を
+     * setDoc(merge:true) で自動作成・更新する。
+     *
+     * 【重要】サーバーAPI（/api/auth/line 等）を廃止しクライアントから直接
+     * 書き込む構成のため、request.auth による「本人確認」は行われない。
+     * つまり現状のルールでは、任意のクライアントが任意の userId を書き込める。
+     * 公開前に「ログイン中のユーザー」が誰であるかを検証したい場合は、
+     * Firebase Authentication（匿名認証）を併用し、request.auth.uid と
+     * userId の一致を要求する形へ強化することを推奨する（下記コメント参照）。
+     * ------------------------------------------------------------------ */
+    match /users/{userId} {
+      allow read: if true;
+
+      // 新規作成: LINEログイン後の自動作成を許可
+      allow create: if true;
+
+      // 更新: 再ログイン時の lastLoginAt / updatedAt / displayName / pictureUrl 更新を許可
+      allow update: if true;
+
+      allow delete: if isAdmin();
+
+      /* 強化版（匿名認証を導入した場合の例）:
+       *
+       *   allow read: if isSignedIn();
+       *   allow create: if isSignedIn() && request.auth.uid == userId
+       *                 && request.resource.data.role == 'student';
+       *   allow update: if isAdmin()
+       *                 || (isSignedIn() && request.auth.uid == userId
+       *                     && request.resource.data.role == resource.data.role
+       *                     && request.resource.data.memberNumber == resource.data.memberNumber
+       *                     && request.resource.data.className == resource.data.className);
+       */
+    }
+
+    /* lessons: 読み取りは全員 / 作成・更新・削除は管理者のみ */
+    match /lessons/{lessonId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    /* lessonReservations: 予約の作成・読み取りは全員 / 出席状態の更新は管理者・講師 */
+    match /lessonReservations/{reservationId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if isAdminOrTeacher();
+      allow delete: if true;
+    }
+
+    /* announcements: 読み取りは全員 / 作成・削除は管理者のみ */
+    match /announcements/{announcementId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    /* payments: 読み取りは全員 / 作成・更新・削除は管理者のみ */
+    match /payments/{paymentId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    /* test_connection: 接続テスト用（書き込み可 / 読み取りは管理者のみ） */
+    match /test_connection/{docId} {
+      allow create: if true;
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+  }
+}
